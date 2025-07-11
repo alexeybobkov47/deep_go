@@ -1,37 +1,98 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
+	"runtime"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
 
+/*
+Идея подхода **copy-on-write** заключается в том, что при чтении данных используется общая копия данных буффера,
+	но в случае изменения данных — создается новая копия данных буффера.
+Для реализации такого подхода можно использовать разделяемый счетчик ссылок - если при изменении данных буффера кто-то еще ссылается на этот буффер,
+	то нужно будет сначала произвести копию данных буффера, изменить счетчик ссылок и
+	только затем произвести изменение (*если никто не ссылается на буффер, то копировать данные буффера не нужно при изменении данных*).
+
+Дополнительно еще нужно реализовать метод конвертации данных буффера в строку без копирования и дополнительного выделения памяти.
+*/
+
+// Предположим, что все будут производить копирование
+// буффера только с использованием метода Clone()
 type COWBuffer struct {
 	data []byte
 	refs *int
-	// need to implement
+	size int
 }
 
+// создать буффер с определенными данными
 func NewCOWBuffer(data []byte) COWBuffer {
-	return COWBuffer{} // need to implement
+	// d := make([]byte, len(data))
+	// copy(d, data)
+	init := 0
+	b := COWBuffer{
+		data: data,
+		size: len(data),
+		refs: &init,
+	}
+
+	runtime.SetFinalizer(&b, func(b *COWBuffer) {
+		fmt.Println("finalizer close")
+		b.Close()
+	})
+
+	return b
 }
 
+// создать новую копию буфера
 func (b *COWBuffer) Clone() COWBuffer {
-	return COWBuffer{} // need to implement
+	*b.refs = *b.refs + 1
+	return *b
 }
 
+// перестать использовать копию буффера
 func (b *COWBuffer) Close() {
-	// need to implement
+	if *b.refs == 0 {
+		return
+	}
+
+	*b.refs = *b.refs - 1
+
+	d := make([]byte, len(b.data))
+	copy(d, b.data)
+	init := 0
+
+	b.data = d
+	b.refs = &init
+
 }
 
+// изменить определенный байт в буффере
 func (b *COWBuffer) Update(index int, value byte) bool {
-	return false // need to implement
+	if index < 0 || index >= b.size {
+		return false
+	}
+
+	if *b.refs > 0 {
+		b.Close()
+	}
+
+	b.data[index] = value
+
+	return true
 }
 
+// сконвертировать буффер в строку
 func (b *COWBuffer) String() string {
-	return "" // need to implement
+	if len(b.data) > 0 {
+		return unsafe.String(unsafe.SliceData(b.data), len(b.data))
+	}
+
+	return ""
 }
 
 func TestCOWBuffer(t *testing.T) {
@@ -41,6 +102,7 @@ func TestCOWBuffer(t *testing.T) {
 
 	copy1 := buffer.Clone()
 	copy2 := buffer.Clone()
+	assert.Equal(t, 2, *buffer.refs)
 
 	assert.Equal(t, unsafe.SliceData(data), unsafe.SliceData(buffer.data))
 	assert.Equal(t, unsafe.SliceData(buffer.data), unsafe.SliceData(copy1.data))
@@ -61,14 +123,14 @@ func TestCOWBuffer(t *testing.T) {
 	assert.NotEqual(t, unsafe.SliceData(buffer.data), unsafe.SliceData(copy1.data))
 	assert.Equal(t, unsafe.SliceData(copy1.data), unsafe.SliceData(copy2.data))
 
-	copy1.Close()
+	runtime.GC()
+	time.Sleep(1 * time.Second)
 
+	assert.Equal(t, 0, *copy2.refs)
 	previous := copy2.data
 	copy2.Update(0, 'f')
 	current := copy2.data
 
 	// 1 reference - don't need to copy buffer during update
 	assert.Equal(t, unsafe.SliceData(previous), unsafe.SliceData(current))
-
-	copy2.Close()
 }
