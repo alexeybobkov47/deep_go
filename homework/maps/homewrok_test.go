@@ -3,6 +3,7 @@ package main
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,64 +19,65 @@ import (
 Поподробнее с бинарными деревьями поиска можно познакомиться [здесь.](https://habr.com/ru/articles/65617/)
 */
 
-type node struct {
-	key   int
-	value int
+type node[K comparable, V any] struct {
+	key   K
+	value V
 
-	l *node
-	r *node
+	l, r *node[K, V]
 }
 
-type OrderedMap struct {
-	root *node
+type OrderedMap[K comparable, V any] struct {
+	root *node[K, V]
 	size int
+
+	less func(a, b K) bool
 }
 
 // создать упорядоченный словарь
-func NewOrderedMap() OrderedMap {
-	return OrderedMap{}
+func NewOrderedMap[K comparable, V any](less func(a, b K) bool) OrderedMap[K, V] {
+	return OrderedMap[K, V]{less: less}
 }
 
 // добавить элемент в словарь
-func (m *OrderedMap) Insert(key, value int) {
-	m.root = m.root.insert(key, value)
+func (m *OrderedMap[K, V]) Insert(key K, value V) {
+	m.root = m.insert(m.root, key, value)
 	m.size += 1
 }
 
-func (n *node) insert(key, value int) *node {
+func (m *OrderedMap[K, V]) insert(n *node[K, V], key K, value V) *node[K, V] {
 	if n == nil {
-		return &node{key: key, value: value}
+		return &node[K, V]{key: key, value: value}
 	}
 
-	if key > n.key {
-		n.r = n.r.insert(key, value)
+	if m.less(n.key, key) {
+		n.r = m.insert(n.r, key, value)
 		return n
 	}
 
-	n.l = n.l.insert(key, value)
+	n.l = m.insert(n.l, key, value)
 	return n
 }
 
 // удалить элемент из словари
-func (m *OrderedMap) Erase(key int) {
-	m.root = m.root.erase(key)
+func (m *OrderedMap[K, V]) Erase(key K) {
+	m.root = m.erase(m.root, key)
 	if m.size > 0 {
 		m.size -= 1
 	}
 }
 
-func (n *node) erase(key int) *node {
+func (m *OrderedMap[K, V]) erase(n *node[K, V], key K) *node[K, V] {
 	if n == nil {
 		return nil
 	}
 
 	if key != n.key {
-		if key > n.key {
-			n.r = n.r.erase(key)
+		if m.less(n.key, key) {
+			n.r = m.erase(n.r, key)
 			return n
 		}
 
-		n.l = n.l.erase(key)
+		n.l = m.erase(n.l, key)
 		return n
 	}
 
@@ -87,31 +89,33 @@ func (n *node) erase(key int) *node {
 		return n.l
 	}
 
-	k, v := n.r.findMin()
-	n.r = n.r.erase(k)
-	n.key = k
-	n.value = v
+	min := n.r.findMin()
+	if min != nil {
+		n.key = min.key
+		n.value = min.value
+		n.r = m.erase(n.r, min.key)
+	}
 
 	return n
 }
 
-func (n *node) findMin() (key, value int) {
+func (n *node[K, V]) findMin() *node[K, V] {
 	if n == nil {
-
+		return nil
 	}
-	if n.r == nil {
-		return n.key, n.value
+	if n.l == nil {
+		return n
 	}
 
-	return n.r.findMin()
+	return n.l.findMin()
 }
 
 // проверить существование элемента в словаре
-func (m *OrderedMap) Contains(key int) bool {
-	return m.root.contains(key)
+func (m *OrderedMap[K, V]) Contains(key K) bool {
+	return m.contains(m.root, key)
 }
 
-func (n *node) contains(key int) bool {
+func (m *OrderedMap[K, V]) contains(n *node[K, V], key K) bool {
 	if n == nil {
 		return false
 	}
@@ -120,33 +124,35 @@ func (n *node) contains(key int) bool {
 		return true
 	}
 
-	if key > n.key {
-		return n.r.contains(key)
+	if m.less(n.key, key) {
+		return m.contains(n.r, key)
 	}
 
-	return n.l.contains(key)
+	return m.contains(n.l, key)
 }
 
 // получить количество элементов в словаре
-func (m *OrderedMap) Size() int {
+func (m *OrderedMap[K, V]) Size() int {
 	return m.size
 }
 
 // применить функцию к каждому элементу словаря от меньшего к большему
-func (m *OrderedMap) ForEach(action func(int, int)) {
-	m.root.forEach(action)
+func (m *OrderedMap[K, V]) ForEach(action func(K, V)) {
+	m.forEach(m.root, action)
 }
 
-func (n *node) forEach(action func(int, int)) {
+func (m *OrderedMap[K, V]) forEach(n *node[K, V], action func(K, V)) {
 	if n != nil {
-		n.l.forEach(action)
+		m.forEach(n.l, action)
 		action(n.key, n.value)
-		n.r.forEach(action)
+		m.forEach(n.r, action)
 	}
 }
 
 func TestCircularQueue(t *testing.T) {
-	data := NewOrderedMap()
+	data := NewOrderedMap[int, int](func(a, b int) bool {
+		return a < b
+	})
 	data.Erase(55)
 	assert.Zero(t, data.Size())
 
@@ -195,4 +201,43 @@ func TestCircularQueue(t *testing.T) {
 	})
 
 	require.Equal(t, expectedKeys, keys)
+}
+
+func TestCircularQueueStringKey(t *testing.T) {
+	data := NewOrderedMap[time.Time, string](func(a, b time.Time) bool {
+		return a.Before(b)
+	})
+
+	t1 := time.Date(2025, 01, 31, 0, 0, 0, 0, time.Local)
+	data.Insert(t1, "0")
+	data.Insert(t1.Add(-25*time.Hour), "-25")
+	data.Insert(t1.Add(-20*time.Hour), "-20")
+	data.Insert(t1.Add(-23*time.Hour), "-23")
+	data.Insert(t1.Add(-22*time.Hour), "-22")
+	assert.True(t, data.root.l.r.l.r.value == "-22")
+
+	values := make([]string, 0, data.Size())
+	expected := []string{"-25", "-23", "-22", "-20", "0"}
+	data.ForEach(func(_ time.Time, v string) {
+		values = append(values, v)
+	})
+	require.Equal(t, expected, values)
+
+	data.Erase(t1.Add(-25 * time.Hour))
+	require.Equal(t, data.root.l.value, "-23")
+	require.Equal(t, data.root.l.r.value, "-20")
+	require.Equal(t, data.root.l.r.l.value, "-22")
+
+	data.Erase(t1)
+	require.Equal(t, data.root.value, "-23")
+
+	data.Insert(t1.Add(1*time.Hour), "1")
+	require.Equal(t, data.root.r.r.value, "1")
+
+	values = make([]string, 0, data.Size())
+	expected = []string{"-23", "-22", "-20", "1"}
+	data.ForEach(func(_ time.Time, v string) {
+		values = append(values, v)
+	})
+	require.Equal(t, expected, values)
 }
