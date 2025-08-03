@@ -8,203 +8,33 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type Option func(*GamePerson)
-
-func WithName(name string) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithCoordinates(x, y, z int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithGold(gold int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithMana(mana int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithHealth(health int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithRespect(respect int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithStrength(strength int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithExperience(experience int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithLevel(level int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithHouse() func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithGun() func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithFamily() func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-func WithType(personType int) func(*GamePerson) {
-	return func(person *GamePerson) {
-		// need to implement
-	}
-}
-
-const (
-	BuilderGamePersonType = iota
-	BlacksmithGamePersonType
-	WarriorGamePersonType
-)
-
-type GamePerson struct {
-	// need to implement
-}
-
-func NewGamePerson(options ...Option) GamePerson {
-	// need to implement
-	return GamePerson{}
-}
-
-func (p *GamePerson) Name() string {
-	// need to implement
-	return ""
-}
-
-func (p *GamePerson) X() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Y() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Z() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Gold() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Mana() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Health() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Respect() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Strength() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Experience() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) Level() int {
-	// need to implement
-	return 0
-}
-
-func (p *GamePerson) HasHouse() bool {
-	// need to implement
-	return false
-}
-
-func (p *GamePerson) HasGun() bool {
-	// need to implement
-	return false
-}
-
-func (p *GamePerson) HasFamilty() bool {
-	// need to implement
-	return false
-}
-
-func (p *GamePerson) Type() int {
-	// need to implement
-	return 0
-}
-
 func TestGamePerson(t *testing.T) {
 	assert.LessOrEqual(t, unsafe.Sizeof(GamePerson{}), uintptr(64))
 
 	const x, y, z = math.MinInt32, math.MaxInt32, 0
 	const name = "aaaaaaaaaaaaa_bbbbbbbbbbbbb_cccccccccccccc"
-	const personType = BuilderGamePersonType
+	const personType = WarriorGamePersonType
 	const gold = math.MaxInt32
-	const mana = 1000
+	const mana = 999
 	const health = 1000
-	const respect = 10
-	const strength = 10
-	const experience = 10
-	const level = 10
+	const respect = 9
+	const strength = 8
+	const experience = 7
+	const level = 6
 
 	options := []Option{
 		WithName(name),
+		WithType(personType),
 		WithCoordinates(x, y, z),
 		WithGold(gold),
-		WithMana(mana),
 		WithHealth(health),
+		WithMana(mana),
 		WithRespect(respect),
 		WithStrength(strength),
 		WithExperience(experience),
 		WithLevel(level),
 		WithHouse(),
 		WithFamily(),
-		WithType(personType),
 	}
 
 	person := NewGamePerson(options...)
